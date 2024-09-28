@@ -42,12 +42,12 @@ class BEIRRetriever:
         out_dir = os.path.join(pathlib.Path(__file__).parent.absolute(), "datasets")
         self.data_path = util.download_and_unzip(url, out_dir)
 
-    def load_data(self):
+    def load_data(self, split="test"):
         """
         Load the corpus, queries, and qrels from the prepared dataset.
         """
         logging.info(f"Loading data for dataset: {self.dataset_name}")
-        self.corpus, self.queries, self.qrels = GenericDataLoader(data_folder=self.data_path).load(split="test")
+        self.corpus, self.queries, self.qrels = GenericDataLoader(data_folder=self.data_path).load(split=split)
 
     def load_model(self):
         """
@@ -77,18 +77,18 @@ class BEIRRetriever:
 # Example usage
 if __name__ == "__main__":
     dataset_name = "scifact"  # Replace with any BEIR dataset
-    retriever = BEIRRetriever(dataset_name)
+    data_retriever = BEIRRetriever(dataset_name)
     
-    retriever.download_and_prepare_data()
-    retriever.load_data()
-    retriever.load_model()
+    data_retriever.download_and_prepare_data()
+    data_retriever.load_data()
+    # retriever.load_model()
     
-    results = retriever.retrieve()
+    # results = retriever.retrieve()
     
-    ndcg, _map, recall, precision = retriever.evaluate(results)
+    # ndcg, _map, recall, precision = retriever.evaluate(results)
     
-    print(f"NDCG: {ndcg}")
-    print(f"MAP: {_map}")
-    print(f"Recall: {recall}")
-    print(f"Precision: {precision}")
+    # print(f"NDCG: {ndcg}")
+    # print(f"MAP: {_map}")
+    # print(f"Recall: {recall}")
+    # print(f"Precision: {precision}")
 
