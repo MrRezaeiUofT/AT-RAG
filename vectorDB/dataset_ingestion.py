@@ -33,8 +33,8 @@ class Ingestor:
         metadatas = []
 
         for i, sample in enumerate(data):
-            if i > 3:  # Limiting for debugging, you can adjust as needed
-                break
+            # if i > 3:  # Limiting for debugging, you can adjust as needed
+            #     break
             for context in sample['contexts']:
                 documents.append(context['paragraph_text'])
                 metadatas.append({
