@@ -2,3 +2,4 @@ datasets/
 *.zip
 processed_data/
 raw_data/
+processing_scripts/__pycache__/*
