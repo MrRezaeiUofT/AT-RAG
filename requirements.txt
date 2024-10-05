@@ -1,0 +1,10 @@
+beir==2.0.0
+bertopic==0.16.3
+jsonlines==4.0.0
+jsonnet==0.20.0
+langchain==0.3.2
+python-decouple==3.8
+rapidfuzz==3.10.0
+Requests==2.32.3
+tqdm==4.66.5
+transformers==4.45.1

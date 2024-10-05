@@ -131,7 +131,3 @@ if __name__ == "__main__":
     # Example: Ask a question and retrieve answers
     question = "Who is the father-in-law of Queen Hyojeong?"
     results = ingestor.query_question(question, top_n=10)
-
-    for i, result in enumerate(results):
-        print(f"Result {i+1}:")
-        print(result['document'])
