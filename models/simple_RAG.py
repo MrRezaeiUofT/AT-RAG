@@ -5,6 +5,7 @@ from langchain.prompts import PromptTemplate
 from langchain.llms import OpenAI
 from langchain.chains import LLMChain
 sys.path.append('../')
+sys.path.append('../vectorDB')
 openai_api_key = config('OPENAI_API_KEY')
 from vectorDB.dataset_ingestion import Ingestor
 class SmileRAGPipeline:
@@ -56,7 +57,7 @@ if __name__ == "__main__":
     rag_pipeline = SmileRAGPipeline(vectordb=vectordb, openai_api_key=openai_api_key)
 
     # Step 3: Query the pipeline with a sample question
-    question = "Who is Ermengarde Of Tuscany's paternal grandfather?"
+    question = "Who is the founder of the company which published Big Picture (Magazine)?"
     result = rag_pipeline.run_chain(question)
 
     # Output the result with metadata

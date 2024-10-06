@@ -5,7 +5,7 @@ from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import Chroma
 from bertopic import BERTopic
 from transformers import AutoTokenizer, AutoModel
-from train_tpic_model import BERTopicTrainer
+from train_topic_model import BERTopicTrainer
 
 # Load the OpenAI API key
 openai_api_key = config('OPENAI_API_KEY')
@@ -20,9 +20,7 @@ class Ingestor:
         self.persist_directory = persist_directory
         self.openai_api_key = openai_api_key
 
-        # Initialize BERTopicTrainer to manage topic model
-        self.topic_model = BERTopicTrainer()
-        self.topic_model.load_topic_model()
+        
 
     def load_data(self):
         """Load the dataset and extract documents and metadata."""
@@ -54,6 +52,9 @@ class Ingestor:
     def create_vectordb(self):
         """Create the Chroma vector store with embeddings and topic metadata."""
         # Load data and metadata
+        # Initialize BERTopicTrainer to manage topic model
+        self.topic_model = BERTopicTrainer()
+        self.topic_model.load_topic_model()
         documents, metadatas = self.load_data()
 
         # Perform BERTopic classification and obtain embeddings
@@ -122,7 +123,7 @@ class Ingestor:
 if __name__ == "__main__":
     # Create an instance of Ingestor with pre-trained models
     ingestor = Ingestor(
-        dataset_path='../processed_data/2wikimultihopqa/test_subsampled.jsonl',
+        dataset_path='../processed_data/2wikimultihopqa/dev_subsampled.jsonl',
         persist_directory='2wikimultihopqa',
         openai_api_key=openai_api_key,
     )
