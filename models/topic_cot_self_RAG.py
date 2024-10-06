@@ -213,8 +213,8 @@ class DocumentProcessingPipeline:
         cot_parser = StructuredOutputParser.from_response_schemas(response_schemas)
         format_instructions = cot_parser.get_format_instructions()
         prompt=""""You are a chain of thought generator for a {question} asked. 
-                    Do your best to generate a short chain of thought for the {question} about how it 
-                    should be processed step by step: use {format_instructions} """
+                    Do your best to generate a short reasoning for the {question} about how it 
+                    should be answered step by step: use {format_instructions} """
         cot_prompt= PromptTemplate(template=prompt,
                                     input_variables=["generation", "question"],
             partial_variables={"format_instructions": format_instructions})
