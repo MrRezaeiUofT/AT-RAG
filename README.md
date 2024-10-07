@@ -1,5 +1,3 @@
-Here’s a more organized and neat version of the markdown:
-
 # Advanced QA Graph
 
 ## Datasets
@@ -190,7 +188,6 @@ if __name__ == "__main__":
 ### Methods
 - `rouge()`: Evaluates the dataset using ROUGE metrics.
 - `LLMaaJ(model)`: Uses an LLM to evaluate the quality of generated answers.
-
+## Final Results
+- Final resultrs are saved in results directory
 ---
-
-This neatened markdown should be easier to follow and well-formatted for clear usage of code and explanations!
