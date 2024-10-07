@@ -191,3 +191,14 @@ if __name__ == "__main__":
 ## Final Results
 - Final resultrs are saved in results directory
 ---
+
+## Citation
+When utilizing this repository to generate published results or integrate it into other software, kindly acknowledge our paper by citing it.
+```bibtex
+@article{xx,
+  title={xx},
+  author={xx},
+  journal={xx},
+  year={xx}
+}
+```
