@@ -1,9 +1,17 @@
 import os
 from bertopic import BERTopic
 import json
+from decouple import config
 import _osx_support
+
+
 class BERTopicTrainer:
-    def __init__(self, dataset_path: str="", bert_topic_model_path: str = 'bertopic_model', nr_topics: int = None):
+    def __init__(
+        self,
+        dataset_path: str = "",
+        bert_topic_model_path: str = "bertopic_model",
+        nr_topics: int = None,
+    ):
         self.dataset_path = dataset_path
         self.bert_topic_model_path = bert_topic_model_path
         self.nr_topics = nr_topics  # Number of topics (optional)
@@ -11,10 +19,12 @@ class BERTopicTrainer:
 
     def load_data(self):
         """Load the dataset and extract documents."""
-        with open(self.dataset_path, 'r') as file:
+        with open(self.dataset_path, "r") as file:
             data = [json.loads(line) for line in file]
 
-        documents = [context['paragraph_text'] for sample in data for context in sample.get('contexts', [])]
+        documents = [
+            context["paragraph_text"] for sample in data for context in sample.get("contexts", [])
+        ]
         return documents
 
     def train_topic_model(self, documents):
@@ -42,7 +52,10 @@ class BERTopicTrainer:
             print(f"Loading BERTopic model from {self.bert_topic_model_path}...")
             self.topic_model = BERTopic.load(self.bert_topic_model_path)
         else:
-            raise FileNotFoundError(f"BERTopic model not found at {self.bert_topic_model_path}. Please train the model first.")
+            raise FileNotFoundError(
+                f"BERTopic model not found at {self.bert_topic_model_path}. Please train the model first."
+            )
+
     def get_topics_with_probabilities(self, documents):
         """Get topics and probability vectors for each document."""
         if not self.topic_model:
@@ -62,17 +75,18 @@ class BERTopicTrainer:
         # Get topic information (frequency, representation, etc.)
         topic_info = self.topic_model.get_topic_info()
         return topic_info
+
+
 if __name__ == "__main__":
     dataset = "2wikimultihopqa"
     subsample = "test_subsampled"
-    dataset_path = "../processed_data/{}/{}.jsonl".format(dataset,
-                                                                           subsample)
+    dataset_path = "../processed_data/{}/{}.jsonl".format(dataset, subsample)
     trainer = BERTopicTrainer(dataset_path=dataset_path, nr_topics=20)  # Reduce to 10 topics
 
     # Load data and train the model
     documents = trainer.load_data()
     topics, probabilities = trainer.train_topic_model(documents)
-    
+
     # Example: Get topics and probabilities for new documents
     trainer.load_topic_model()
     new_documents = ["This is an example of a new document about AI and technology."]
