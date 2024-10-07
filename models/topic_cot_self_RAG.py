@@ -237,7 +237,7 @@ class TopicCoTSelfRAG:
         cot_parser = StructuredOutputParser.from_response_schemas(response_schemas)
         format_instructions = cot_parser.get_format_instructions()
         prompt = """"You are a chain of thought generator for a {question} asked. 
-                    Do your best to generate a reasoning for  answering the question about how it 
+                    Do your best to generate a short reasoning for  answering the question about how it 
                     you have access to these information {context}.
                     Use {format_instructions} """
         cot_prompt = PromptTemplate(
