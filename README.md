@@ -148,7 +148,7 @@ if __name__ == "__main__":
 - **subsample**: Subsample of the dataset (e.g., `test_subsampled`).
 - **model**: Model used for generating answers (e.g., `topic_cot_self_RAG`).
 - **top_n**: Number of topics to retrieve during topic modeling.
-- **max_iter**: Maximum iterations for topic modeling.
+- **max_iter**: Maximum iterations for the answering pipline.
 
 ### Methods
 - `load_evaluation_data()`: Loads evaluation data containing questions and ground truth.
