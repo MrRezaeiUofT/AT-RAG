@@ -62,7 +62,7 @@ if __name__ == "__main__":
                         openai_api_key=openai_api_key,)
     
     dict_results = ingestor.load_evaluation_data()
-    dict_results = {key: value[:L] for key, value in dict_results.items()}
+    # dict_results = {key: value[:L] for key, value in dict_results.items()}
 
     dict_results["generated_answer"] = []
     

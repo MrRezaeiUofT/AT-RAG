@@ -298,7 +298,7 @@ if __name__ == "__main__":
                                                                            subsample))
     
     dict_results = pipeline.ingestor.load_evaluation_data()
-    dict_results = {key: value[:L] for key, value in dict_results.items()}
+    # dict_results = {key: value[:L] for key, value in dict_results.items()}
     dict_results["generated_answer"] = []
     # Step 2: Create an instance of SmileRAGPipeline and query
 
