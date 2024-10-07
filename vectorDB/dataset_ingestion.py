@@ -118,12 +118,32 @@ class Ingestor:
                 print(result)
 
         return search_results
+    
+    def load_evaluation_data(self):
+        """
+        This method loads evaluation data (question + ground-truth) and returns it as a dictionary
+        """
+        
+        dict_groundtruth = {"question_id": [],
+                            "question_text": [],
+                            "ground_truth": []}
+        
+        
+        with open(self.dataset_path, 'r') as file:
+            data = [json.loads(line) for line in file]
+            
+        for sample in data:
+            dict_groundtruth["question_id"].append(sample["question_id"])
+            dict_groundtruth["question_text"].append(sample["question_text"])
+            dict_groundtruth["ground_truth"].append(sample["answers_objects"][0]["spans"][0])
+        
+        return dict_groundtruth
 
 
 if __name__ == "__main__":
     # Create an instance of Ingestor with pre-trained models
     ingestor = Ingestor(
-        dataset_path='../processed_data/2wikimultihopqa/dev_subsampled.jsonl',
+        dataset_path='../processed_data/2wikimultihopqa/test_subsampled.jsonl',
         persist_directory='2wikimultihopqa',
         openai_api_key=openai_api_key,
     )

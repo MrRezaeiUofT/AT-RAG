@@ -8,6 +8,7 @@ from langchain_core.prompts import PromptTemplate, FewShotPromptTemplate
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from langchain.output_parsers import ResponseSchema, StructuredOutputParser
 from typing import List
+import pandas as pd
 from pprint import pprint
 from langgraph.graph import END, StateGraph, START
 from typing_extensions import TypedDict
@@ -19,16 +20,23 @@ from dataset_ingestion import Ingestor
 from train_topic_model import BERTopicTrainer
 
 class DocumentProcessingPipeline:
-    def __init__(self, max_iter=5):
+    def __init__(self,
+                 max_iter=5,
+                 nr_topics=10,
+                 dataset_path="../processed_data/2wikimultihopqa/test_subsampled.jsonl",
+                 vectorDB_path= '../vectorDB/2wikimultihopqa',
+                 bert_topic_model_path="../vectordb/bertopic_model"):
         # Load OpenAI API key from environment variables
         self.openai_api_key = config('OPENAI_API_KEY')
         self.max_iter=max_iter
         # Initialize the Ingestor
-        self.ingestor = Ingestor(openai_api_key=self.openai_api_key)
-        self.vectordb = self.ingestor.load_vectordb('../vectorDB/2wikimultihopqa')  # Adjust path as needed
+        self.ingestor = Ingestor(dataset_path=dataset_path,
+                                 openai_api_key=self.openai_api_key)
+        self.vectordb = self.ingestor.load_vectordb(vectorDB_path)  # Adjust path as needed
 
         # Load and configure the BERTopic model trainer
-        self.trainer = BERTopicTrainer(nr_topics=10, bert_topic_model_path="../vectordb/bertopic_model")
+        self.trainer = BERTopicTrainer(nr_topics=nr_topics,
+                                        bert_topic_model_path=bert_topic_model_path)
         self.trainer.load_topic_model()
 
         # Initialize LLM
@@ -43,6 +51,7 @@ class DocumentProcessingPipeline:
 
         # Create state graph
         self.workflow = StateGraph(self.GraphState)
+        self.create_graph()
 
     class GraphState(TypedDict):
         """
@@ -241,9 +250,7 @@ class DocumentProcessingPipeline:
             "question": question,
         }
 
-
-    def run_pipeline(self, question):
-        self.iter=0
+    def create_graph(self):
         # Initialize the workflow
         self.workflow.add_node("retrieve", self.retrieve)
         self.workflow.add_node("generate_cot", self.generate_cot)  # grade documents
@@ -264,11 +271,14 @@ class DocumentProcessingPipeline:
             "useful": END,
             "not useful": "transform_query",
         })
-        final_state = {}
         # Compile and run
-        app = self.workflow.compile()
+        self.app = self.workflow.compile()
+    def run_pipeline(self, question):
+        self.iter=0
+        
+        final_state = {}
         inputs = {"question": question}
-        for output in app.stream(inputs):
+        for output in self.app.stream(inputs):
             pprint(output)
             if "generation" in output:
                 final_state.update(output)
@@ -278,7 +288,35 @@ class DocumentProcessingPipeline:
     def format_docs(docs):
         return "\n\n".join(doc.page_content for doc in docs)
 
-# Usage
-pipeline = DocumentProcessingPipeline()
-final_answer= pipeline.run_pipeline("Who is the founder of the company which published Big Picture (Magazine)?")
-print(pipeline.last_answer)
+if __name__ == "__main__":
+    dataset = "2wikimultihopqa"
+    subsample = "test_subsampled"
+    model = 'topic_cot_self_RAG'
+    # L = 3
+    pipeline = DocumentProcessingPipeline(vectorDB_path="../vectorDB/{}".format(dataset),
+                                          dataset_path="../processed_data/{}/{}.jsonl".format(dataset,
+                                                                           subsample))
+    
+    dict_results = pipeline.ingestor.load_evaluation_data()
+    dict_results = {key: value[:L] for key, value in dict_results.items()}
+    dict_results["generated_answer"] = []
+    # Step 2: Create an instance of SmileRAGPipeline and query
+
+    for i in range(len(dict_results["question_id"])):
+        # if i>L:
+        #     break
+        question = dict_results["question_text"][i]
+        _= pipeline.run_pipeline(question=question)
+        result = pipeline.last_answer
+        result = result.lstrip()
+        dict_results["generated_answer"].append(result)
+        print(dict_results["question_text"][i], 
+              "  ->  ", 
+              dict_results["ground_truth"][i],
+              "  ->  ",
+              result)
+    df_results = pd.DataFrame(dict_results)
+    df_results.to_csv("../results/results_{}_{}_{}.csv".format(dataset,
+                                                            subsample,
+                                                            model),
+                      index=False)

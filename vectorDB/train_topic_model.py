@@ -63,7 +63,7 @@ class BERTopicTrainer:
         topic_info = self.topic_model.get_topic_info()
         return topic_info
 if __name__ == "__main__":
-    dataset_path = '../processed_data/2wikimultihopqa/dev_subsampled.jsonl'
+    dataset_path = '../processed_data/2wikimultihopqa/test_subsampled.jsonl'
     trainer = BERTopicTrainer(dataset_path=dataset_path, nr_topics=20)  # Reduce to 10 topics
 
     # Load data and train the model

@@ -4,6 +4,8 @@ from decouple import config
 from langchain.prompts import PromptTemplate
 from langchain.llms import OpenAI
 from langchain.chains import LLMChain
+import pandas as pd
+import itertools
 sys.path.append('../')
 sys.path.append('../vectorDB')
 openai_api_key = config('OPENAI_API_KEY')
@@ -51,14 +53,37 @@ class SmileRAGPipeline:
         return result
 
 if __name__ == "__main__":
-    ingestor = Ingestor(openai_api_key=openai_api_key)
-    vectordb = ingestor.load_vectordb('../vectorDB/2wikimultihopqa')
+    dataset = "2wikimultihopqa"
+    subsample = "test_subsampled"
+    model = 'simple_RAG'
+    # L = 3
+    ingestor = Ingestor(dataset_path="../processed_data/{}/{}.jsonl".format(dataset,
+                                                                           subsample),
+                        openai_api_key=openai_api_key,)
+    
+    dict_results = ingestor.load_evaluation_data()
+    dict_results = {key: value[:L] for key, value in dict_results.items()}
+
+    dict_results["generated_answer"] = []
+    
+    vectordb = ingestor.load_vectordb("../vectorDB/{}".format(dataset))
     # Step 2: Create an instance of SmileRAGPipeline and query
     rag_pipeline = SmileRAGPipeline(vectordb=vectordb, openai_api_key=openai_api_key)
-
-    # Step 3: Query the pipeline with a sample question
-    question = "Who is the founder of the company which published Big Picture (Magazine)?"
-    result = rag_pipeline.run_chain(question)
-
-    # Output the result with metadata
-    print("Answer:", result)
+    
+    for i in range(len(dict_results["question_id"])):
+        # if i>L:
+        #     break
+        question = dict_results["question_text"][i]
+        result = rag_pipeline.run_chain(question)
+        result = result.lstrip()
+        dict_results["generated_answer"].append(result)
+        print(dict_results["question_text"][i], 
+              "  ->  ", 
+              dict_results["ground_truth"][i],
+              "  ->  ",
+              result)
+    df_results = pd.DataFrame(dict_results)
+    df_results.to_csv("../results/results_{}_{}_{}.csv".format(dataset,
+                                                            subsample,
+                                                            model),
+                      index=False)
