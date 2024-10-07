@@ -3,6 +3,7 @@ from decouple import config
 from langchain.prompts import PromptTemplate
 from langchain.llms import OpenAI
 from langchain.chains import LLMChain
+from langchain.chat_models import ChatOpenAI 
 from langchain import hub
 from langchain_core.prompts import PromptTemplate, FewShotPromptTemplate
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
@@ -47,7 +48,7 @@ class TopicCoTSelfRAG:
         self.trainer.load_topic_model()
 
         # Initialize LLM
-        self.llm = OpenAI(api_key=self.openai_api_key)
+        self.llm = ChatOpenAI(model="gpt-4",api_key=self.openai_api_key)
 
         # Initialize graders and chain
         self.retrieval_grader = self._create_retrieval_grader()
@@ -236,8 +237,9 @@ class TopicCoTSelfRAG:
         cot_parser = StructuredOutputParser.from_response_schemas(response_schemas)
         format_instructions = cot_parser.get_format_instructions()
         prompt = """"You are a chain of thought generator for a {question} asked. 
-                    Do your best to generate a very short reasoning for the {question} about how it 
-                    you have access to these information {context}. should be answered step by step: use {format_instructions} """
+                    Do your best to generate a reasoning for  answering the question about how it 
+                    you have access to these information {context}.
+                    Use {format_instructions} """
         cot_prompt = PromptTemplate(
             template=prompt,
             input_variables=["generation", "question", "context"],
