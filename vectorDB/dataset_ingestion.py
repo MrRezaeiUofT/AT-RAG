@@ -141,14 +141,21 @@ class Ingestor:
 
 
 if __name__ == "__main__":
+    dataset = "2wikimultihopqa"
+    subsample = "test_subsampled"
+    top_n = 10
     # Create an instance of Ingestor with pre-trained models
     ingestor = Ingestor(
-        dataset_path='../processed_data/2wikimultihopqa/test_subsampled.jsonl',
-        persist_directory='2wikimultihopqa',
+        dataset_path="../processed_data/{}/{}.jsonl".format(dataset,
+                                                                           subsample),
+        persist_directory="../vectorDB/{}".format(dataset),
         openai_api_key=openai_api_key,
     )
     vectordb = ingestor.create_vectordb()
 
     # Example: Ask a question and retrieve answers
     question = "Who is the father-in-law of Queen Hyojeong?"
-    results = ingestor.query_question(question, top_n=10)
+    results = ingestor.query_question(question, top_n=top_n)
+
+
+

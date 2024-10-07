@@ -19,7 +19,7 @@ sys.path.append('../vectorDB')
 from dataset_ingestion import Ingestor
 from train_topic_model import BERTopicTrainer
 
-class DocumentProcessingPipeline:
+class TopicCoTSelfRAG:
     def __init__(self,
                  max_iter=5,
                  nr_topics=10,
@@ -292,10 +292,14 @@ if __name__ == "__main__":
     dataset = "2wikimultihopqa"
     subsample = "test_subsampled"
     model = 'topic_cot_self_RAG'
+    top_n = 10
+    max_iter = 5
     # L = 3
-    pipeline = DocumentProcessingPipeline(vectorDB_path="../vectorDB/{}".format(dataset),
+    pipeline = TopicCoTSelfRAG(vectorDB_path="../vectorDB/{}".format(dataset),
                                           dataset_path="../processed_data/{}/{}.jsonl".format(dataset,
-                                                                           subsample))
+                                                                           subsample),
+                                                                           nr_topics=top_n,
+                                                                           max_iter=max_iter)
     
     dict_results = pipeline.ingestor.load_evaluation_data()
     # dict_results = {key: value[:L] for key, value in dict_results.items()}
