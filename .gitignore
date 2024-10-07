@@ -3,3 +3,8 @@ datasets/
 processed_data/
 raw_data/
 processing_scripts/__pycache__/*.env
+venv/
+*.csv
+jsonnet/
+__pycache__/
+models/__pycache__/

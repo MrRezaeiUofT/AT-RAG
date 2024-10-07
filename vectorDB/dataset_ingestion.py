@@ -42,6 +42,26 @@ class Ingestor:
                 })
 
         return documents, metadatas
+    
+    def load_evaluation_data(self):
+        """
+        This method loads evaluation data (question + ground-truth) and returns it as a dictionary
+        """
+        
+        dict_groundtruth = {"question_id": [],
+                            "question_text": [],
+                            "ground_truth": []}
+        
+        
+        with open(self.dataset_path, 'r') as file:
+            data = [json.loads(line) for line in file]
+            
+        for sample in data:
+            dict_groundtruth["question_id"].append(sample["question_id"])
+            dict_groundtruth["question_text"].append(sample["question_text"])
+            dict_groundtruth["ground_truth"].append(sample["answers_objects"][0]["spans"][0])
+        
+        return dict_groundtruth
 
     def perform_topic_classification(self, documents):
         """Train or load BERTopic model for topic classification using BERTopicTrainer."""

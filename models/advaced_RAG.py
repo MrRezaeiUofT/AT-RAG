@@ -12,8 +12,8 @@ sys.path.append('../vectorDB')
 openai_api_key = config('OPENAI_API_KEY')
 
 # Import your dataset ingestion and topic model training utilities
-from dataset_ingestion import Ingestor
-from train_topic_model import BERTopicTrainer
+from vectorDB.dataset_ingestion import Ingestor
+from vectorDB.train_topic_model import BERTopicTrainer
 
 # Step 1: Generate Topic for the Question
 question = "Who is Ermengarde Of Tuscany's paternal grandfather?"
