@@ -82,14 +82,17 @@ class TopicCoTSelfRAG:
         ]
         parser = StructuredOutputParser.from_response_schemas(response_schemas)
         format_instructions = parser.get_format_instructions()
+
         prompt = PromptTemplate(
-            template="""You are a grader assessing relevance of a retrieved document to a user question. \n 
+            template="""You are a grader assessing the relevance of a retrieved document to a user question. \n 
             Here is the retrieved document: \n\n {document} \n\n
             Here is the user question: {question} \n
-            use {format_instructions} for answer output""",
+            Please respond in valid JSON format as follows:\n
+            {format_instructions}""",
             input_variables=["question", "document"],
             partial_variables={"format_instructions": format_instructions},
         )
+
         return prompt | self.llm | parser
 
     def _create_hallucination_grader(self):
@@ -98,17 +101,20 @@ class TopicCoTSelfRAG:
         ]
         parser = StructuredOutputParser.from_response_schemas(response_schemas)
         format_instructions = parser.get_format_instructions()
+
         prompt = PromptTemplate(
             template="""You are a grader assessing whether an answer is grounded in a set of facts. \n 
             Here are the facts:
             \n ------- \n
             {documents} 
             \n ------- \n
-            Here is the answer: {generation}
-            use {format_instructions} for answer output """,
+            Here is the answer: {generation} \n
+            Please respond in valid JSON format using the following instructions: \n
+            {format_instructions}""",
             input_variables=["generation", "documents"],
             partial_variables={"format_instructions": format_instructions},
         )
+
         return prompt | self.llm | parser
 
     def _create_answer_grader(self):
@@ -117,17 +123,20 @@ class TopicCoTSelfRAG:
         ]
         parser = StructuredOutputParser.from_response_schemas(response_schemas)
         format_instructions = parser.get_format_instructions()
+
         prompt = PromptTemplate(
-            template="""You are a grader assessing whether an answer is useful to resolve a question. \n 
+            template="""You are a grader assessing whether an answer is useful to resolve a question. \n
             Here is the answer:
             \n ------- \n
             {generation} 
             \n ------- \n
-            Here is the question: {question}
-            use {format_instructions} for answer output.""",
+            Here is the question: {question} \n
+            Please respond in valid JSON format using the following instructions: \n
+            {format_instructions}""",
             input_variables=["generation", "question"],
             partial_variables={"format_instructions": format_instructions},
         )
+
         return prompt | self.llm | parser
 
     def _create_question_rewriter(self):
@@ -225,26 +234,33 @@ class TopicCoTSelfRAG:
                 return "not supported"
 
     def get_cot_chain(self):
-
+        # Define the response schema to ensure the JSON format is valid
         response_schemas = [
             ResponseSchema(
                 name="thoughts",
-                description="the generated reasoning and chain of thought step by step for the question",
+                description="The generated reasoning and chain of thought for the question.",
                 type="string",
             ),
         ]
+
         # Initialize a structured output parser based on the response schema
         cot_parser = StructuredOutputParser.from_response_schemas(response_schemas)
         format_instructions = cot_parser.get_format_instructions()
-        prompt = """"You are a chain of thought generator for a {question} asked. 
-                    Do your best to generate a very short reasoning for the {question} about how it 
-                    you have access to these information {context}. should be answered step by step: use {format_instructions} """
+
+        # Define the prompt template with explicit instructions for valid JSON output
+        prompt = """You are tasked with generating a chain of thought for the question: {question}. 
+                    You have access to the following context: {context}. 
+                    Your job is to provide a detailed chain of reasoning and final thoughts.
+                    Please respond with valid JSON using the following instructions: 
+                    {format_instructions}"""
+
         cot_prompt = PromptTemplate(
             template=prompt,
             input_variables=["generation", "question", "context"],
             partial_variables={"format_instructions": format_instructions},
         )
-        # Return the chain of operations: prompt -> llm -> category_parser
+
+        # Return the chain of operations: prompt -> llm -> cot_parser
         return cot_prompt | self.llm | cot_parser
 
     def generate_cot(self, state):
