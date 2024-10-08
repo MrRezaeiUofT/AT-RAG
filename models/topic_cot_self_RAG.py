@@ -340,7 +340,8 @@ if __name__ == "__main__":
     top_n = 10
     max_iter = 3
     max_doc_retrived = 5
-    # L = 3
+
+    # Initialize the TopicCoTSelfRAG pipeline
     pipeline = TopicCoTSelfRAG(
         vectorDB_path="../vectorDB/{}".format(dataset),
         dataset_path="../processed_data/{}/{}.jsonl".format(dataset, subsample),
@@ -349,29 +350,40 @@ if __name__ == "__main__":
         max_doc_retrived=max_doc_retrived,
     )
 
+    # Load evaluation data
     dict_results = pipeline.ingestor.load_evaluation_data()
-    # dict_results = {key: value[:L] for key, value in dict_results.items()}
     dict_results["generated_answer"] = []
-    # Step 2: Create an instance of SmileRAGPipeline and query
 
-    for i in range(5, len(dict_results["question_id"])):
-
-        # if i>L:
-        #     break
+    # Iterate through the evaluation dataset
+    for i in range(len(dict_results["question_id"])):
         question = dict_results["question_text"][i]
-        _ = pipeline.run_pipeline(question=question)
-        result = pipeline.last_answer
-        print(result)
-        result = result.lstrip()
-        dict_results["generated_answer"].append(result)
-        print(f"qustion#{i}")
-        print(
-            dict_results["question_text"][i],
-            "  ->  ",
-            dict_results["ground_truth"][i],
-            "  ->  ",
-            result,
-        )
+
+        try:
+            # Run the pipeline for the current question
+            _ = pipeline.run_pipeline(question=question)
+
+            # Attempt to retrieve the last generated answer
+            result = pipeline.last_answer if hasattr(pipeline, "last_answer") else ""
+
+            # Strip leading spaces and add the result to the dictionary
+            result = result.lstrip() if result else ""
+            dict_results["generated_answer"].append(result)
+
+            print(f"question#{i}")
+            print(
+                dict_results["question_text"][i],
+                "  ->  ",
+                dict_results["ground_truth"][i],
+                "  ->  ",
+                result,
+            )
+        except Exception as e:
+            # If there's an error during the pipeline execution, log it and append an empty string
+            result = pipeline.last_answer if hasattr(pipeline, "last_answer") else ""
+            print(f"Error processing question#{i}: {e}")
+            dict_results["generated_answer"].append(result)
+
+    # Convert the results dictionary to a DataFrame and save to CSV
     df_results = pd.DataFrame(dict_results)
     df_results.to_csv(
         "../results/results_{}_{}_{}.csv".format(dataset, subsample, model), index=False
