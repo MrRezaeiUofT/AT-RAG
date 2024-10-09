@@ -48,7 +48,7 @@ class TopicCoTSelfRAG:
         self.trainer.load_topic_model()
 
         # Initialize LLM
-        self.llm = ChatOpenAI(model="gpt-4",api_key=self.openai_api_key)
+        self.llm = ChatOpenAI(model="gpt-4o-mini",api_key=self.openai_api_key)
 
         # Initialize graders and chain
         self.retrieval_grader = self._create_retrieval_grader()
@@ -82,14 +82,17 @@ class TopicCoTSelfRAG:
         ]
         parser = StructuredOutputParser.from_response_schemas(response_schemas)
         format_instructions = parser.get_format_instructions()
+
         prompt = PromptTemplate(
-            template="""You are a grader assessing relevance of a retrieved document to a user question. \n 
+            template="""You are a grader assessing the relevance of a retrieved document to a user question. \n 
             Here is the retrieved document: \n\n {document} \n\n
             Here is the user question: {question} \n
-            use {format_instructions} for answer output""",
+            Please respond in valid JSON format as follows:\n
+            {format_instructions}""",
             input_variables=["question", "document"],
             partial_variables={"format_instructions": format_instructions},
         )
+
         return prompt | self.llm | parser
 
     def _create_hallucination_grader(self):
@@ -98,17 +101,20 @@ class TopicCoTSelfRAG:
         ]
         parser = StructuredOutputParser.from_response_schemas(response_schemas)
         format_instructions = parser.get_format_instructions()
+
         prompt = PromptTemplate(
             template="""You are a grader assessing whether an answer is grounded in a set of facts. \n 
             Here are the facts:
             \n ------- \n
             {documents} 
             \n ------- \n
-            Here is the answer: {generation}
-            use {format_instructions} for answer output """,
+            Here is the answer: {generation} \n
+            Please respond in valid JSON format using the following instructions: \n
+            {format_instructions}""",
             input_variables=["generation", "documents"],
             partial_variables={"format_instructions": format_instructions},
         )
+
         return prompt | self.llm | parser
 
     def _create_answer_grader(self):
@@ -117,17 +123,20 @@ class TopicCoTSelfRAG:
         ]
         parser = StructuredOutputParser.from_response_schemas(response_schemas)
         format_instructions = parser.get_format_instructions()
+
         prompt = PromptTemplate(
-            template="""You are a grader assessing whether an answer is useful to resolve a question. \n 
+            template="""You are a grader assessing whether an answer is useful to resolve a question. \n
             Here is the answer:
             \n ------- \n
             {generation} 
             \n ------- \n
-            Here is the question: {question}
-            use {format_instructions} for answer output.""",
+            Here is the question: {question} \n
+            Please respond in valid JSON format using the following instructions: \n
+            {format_instructions}""",
             input_variables=["generation", "question"],
             partial_variables={"format_instructions": format_instructions},
         )
+
         return prompt | self.llm | parser
 
     def _create_question_rewriter(self):
@@ -225,27 +234,33 @@ class TopicCoTSelfRAG:
                 return "not supported"
 
     def get_cot_chain(self):
-
+        # Define the response schema to ensure the JSON format is valid
         response_schemas = [
             ResponseSchema(
                 name="thoughts",
-                description="the generated reasoning and chain of thought step by step for the question",
+                description="The generated reasoning and chain of thought for the question.",
                 type="string",
             ),
         ]
+
         # Initialize a structured output parser based on the response schema
         cot_parser = StructuredOutputParser.from_response_schemas(response_schemas)
         format_instructions = cot_parser.get_format_instructions()
-        prompt = """"You are a chain of thought generator for a {question} asked. 
-                    Do your best to generate a short reasoning for  answering the question about how it 
-                    you have access to these information {context}.
-                    Use {format_instructions} """
+
+        # Define the prompt template with explicit instructions for valid JSON output
+        prompt = """You are tasked with generating a chain of thought for the question: {question}. 
+                    You have access to the following context: {context}. 
+                    Your job is to provide a detailed chain of reasoning and final thoughts.
+                    Please respond with valid JSON using the following instructions: 
+                    {format_instructions}"""
+
         cot_prompt = PromptTemplate(
             template=prompt,
             input_variables=["generation", "question", "context"],
             partial_variables={"format_instructions": format_instructions},
         )
-        # Return the chain of operations: prompt -> llm -> category_parser
+
+        # Return the chain of operations: prompt -> llm -> cot_parser
         return cot_prompt | self.llm | cot_parser
 
     def generate_cot(self, state):
@@ -325,7 +340,8 @@ if __name__ == "__main__":
     top_n = 10
     max_iter = 3
     max_doc_retrived = 5
-    # L = 3
+
+    # Initialize the TopicCoTSelfRAG pipeline
     pipeline = TopicCoTSelfRAG(
         vectorDB_path="../vectorDB/{}".format(dataset),
         dataset_path="../processed_data/{}/{}.jsonl".format(dataset, subsample),
@@ -334,29 +350,40 @@ if __name__ == "__main__":
         max_doc_retrived=max_doc_retrived,
     )
 
+    # Load evaluation data
     dict_results = pipeline.ingestor.load_evaluation_data()
-    # dict_results = {key: value[:L] for key, value in dict_results.items()}
     dict_results["generated_answer"] = []
-    # Step 2: Create an instance of SmileRAGPipeline and query
 
-    for i in range(5, len(dict_results["question_id"])):
-
-        # if i>L:
-        #     break
+    # Iterate through the evaluation dataset
+    for i in range(len(dict_results["question_id"])):
         question = dict_results["question_text"][i]
-        _ = pipeline.run_pipeline(question=question)
-        result = pipeline.last_answer
-        print(result)
-        result = result.lstrip()
-        dict_results["generated_answer"].append(result)
-        print(f"qustion#{i}")
-        print(
-            dict_results["question_text"][i],
-            "  ->  ",
-            dict_results["ground_truth"][i],
-            "  ->  ",
-            result,
-        )
+
+        try:
+            # Run the pipeline for the current question
+            _ = pipeline.run_pipeline(question=question)
+
+            # Attempt to retrieve the last generated answer
+            result = pipeline.last_answer if hasattr(pipeline, "last_answer") else ""
+
+            # Strip leading spaces and add the result to the dictionary
+            result = result.lstrip() if result else ""
+            dict_results["generated_answer"].append(result)
+
+            print(f"question#{i}")
+            print(
+                dict_results["question_text"][i],
+                "  ->  ",
+                dict_results["ground_truth"][i],
+                "  ->  ",
+                result,
+            )
+        except Exception as e:
+            # If there's an error during the pipeline execution, log it and append an empty string
+            result = pipeline.last_answer if hasattr(pipeline, "last_answer") else ""
+            print(f"Error processing question#{i}: {e}")
+            dict_results["generated_answer"].append(result)
+
+    # Convert the results dictionary to a DataFrame and save to CSV
     df_results = pd.DataFrame(dict_results)
     df_results.to_csv(
         "../results/results_{}_{}_{}.csv".format(dataset, subsample, model), index=False
