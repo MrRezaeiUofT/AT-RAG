@@ -215,23 +215,23 @@ class TopicCoTSelfRAG:
 
     def grade_generation(self, state):
         print("---CHECK HALLUCINATIONS---")
-        score = self.hallucination_grader.invoke(
-            {"documents": state["documents"], "generation": state["generation"]}
-        )
+        # score = self.hallucination_grader.invoke(
+        #     {"documents": state["documents"], "generation": state["generation"]}
+        # )
         if self.iter >= self.max_iter:
             return "useful"
         else:
 
+            # if score["score"] == "yes":
+            score = self.answer_grader.invoke(
+                {"question": state["question"], "generation": state["generation"]}
+            )
             if score["score"] == "yes":
-                score = self.answer_grader.invoke(
-                    {"question": state["question"], "generation": state["generation"]}
-                )
-                if score["score"] == "yes":
-                    return "useful"
-                else:
-                    return "not useful"
+                return "useful"
             else:
-                return "not supported"
+                return "not useful"
+            # else:
+            #     return "not supported"
 
     def get_cot_chain(self):
         # Define the response schema to ensure the JSON format is valid
@@ -333,13 +333,17 @@ class TopicCoTSelfRAG:
         return "\n\n".join(doc.page_content for doc in docs)
 
 
+import os
+import pandas as pd
+
 if __name__ == "__main__":
     dataset = "2wikimultihopqa"
     subsample = "test_subsampled"
     model = "topic_cot_self_RAG"
     top_n = 10
-    max_iter = 3
-    max_doc_retrived = 5
+    max_iter = 5
+    max_doc_retrived = 10
+    checkpoint_path = "../results/checkpoint_{}_{}_{}.csv".format(dataset, subsample, model)
 
     # Initialize the TopicCoTSelfRAG pipeline
     pipeline = TopicCoTSelfRAG(
@@ -352,10 +356,18 @@ if __name__ == "__main__":
 
     # Load evaluation data
     dict_results = pipeline.ingestor.load_evaluation_data()
-    dict_results["generated_answer"] = []
 
-    # Iterate through the evaluation dataset
-    for i in range(len(dict_results["question_id"])):
+    # Check if there's an existing checkpoint file and load it
+    if os.path.exists(checkpoint_path):
+        df_checkpoint = pd.read_csv(checkpoint_path)
+        start_index = len(df_checkpoint)  # Continue from the next question
+        dict_results["generated_answer"] = df_checkpoint["generated_answer"].tolist()
+    else:
+        start_index = 0
+        dict_results["generated_answer"] = []
+
+    # Iterate through the evaluation dataset starting from where it left off
+    for i in range(start_index, len(dict_results["question_id"])):
         question = dict_results["question_text"][i]
 
         try:
@@ -363,7 +375,7 @@ if __name__ == "__main__":
             _ = pipeline.run_pipeline(question=question)
 
             # Attempt to retrieve the last generated answer
-            result = pipeline.last_answer if hasattr(pipeline, "last_answer") else ""
+            result = pipeline.last_answer if hasattr(pipeline, "last_answer") else "***"
 
             # Strip leading spaces and add the result to the dictionary
             result = result.lstrip() if result else ""
@@ -379,12 +391,24 @@ if __name__ == "__main__":
             )
         except Exception as e:
             # If there's an error during the pipeline execution, log it and append an empty string
-            result = pipeline.last_answer if hasattr(pipeline, "last_answer") else ""
+            result = pipeline.last_answer if hasattr(pipeline, "last_answer") else "***"
             print(f"Error processing question#{i}: {e}")
             dict_results["generated_answer"].append(result)
 
-    # Convert the results dictionary to a DataFrame and save to CSV
+        # Save progress after each iteration
+        df_checkpoint = pd.DataFrame(
+            {
+                "question_id": dict_results["question_id"][: i + 1],
+                "question_text": dict_results["question_text"][: i + 1],
+                "ground_truth": dict_results["ground_truth"][: i + 1],
+                "generated_answer": dict_results["generated_answer"],
+            }
+        )
+        df_checkpoint.to_csv(checkpoint_path, index=False)
+
+    # Save the final results to a separate file
     df_results = pd.DataFrame(dict_results)
     df_results.to_csv(
-        "../results/results_{}_{}_{}.csv".format(dataset, subsample, model), index=False
+        "../results/results_mixteral_azure_{}_{}_{}.csv".format(dataset, subsample, model),
+        index=False,
     )
