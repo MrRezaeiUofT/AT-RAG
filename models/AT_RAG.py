@@ -24,7 +24,7 @@ sys.path.append("../vectorDB/")
 from dataset_ingestion import Ingestor
 from train_topic_model import BERTopicTrainer
 
-class TopicCoTSelfRAG:
+class ATRAG:
     def __init__(
         self,
         max_iter=5,
@@ -50,11 +50,7 @@ class TopicCoTSelfRAG:
 
         # Initialize LLM
         self.llm =  ChatOpenAI(model="gpt-4o",api_key=self.openai_api_key)
-#         self.llm=ChatGoogleGenerativeAI(
-#     api_key=config("GEMINI_API"),  # Fetch the API key from the environment variable
-#     model="gemini-1.5-pro",
-#     convert_system_message_to_human=True
-# )
+
 
         # Initialize graders and chain
         self.retrieval_grader = self._create_retrieval_grader()
@@ -366,8 +362,8 @@ if __name__ == "__main__":
     max_doc_retrived = 10
     checkpoint_path = "../results/checkpoint_{}_{}_{}.csv".format(dataset, subsample, model)
     
-    # Initialize the TopicCoTSelfRAG pipeline
-    pipeline = TopicCoTSelfRAG(
+    # Initialize the ATRAG pipeline
+    pipeline = ATRAG(
         vectorDB_path="../vectorDB/{}".format(dataset),
         dataset_path="../processed_data/{}/{}.jsonl".format(dataset, subsample),
         nr_topics=top_n,
