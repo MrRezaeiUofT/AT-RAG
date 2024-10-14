@@ -189,7 +189,7 @@ class Evaluation:
 if __name__ == "__main__":
     dataset = "2wikimultihopqa"
     subsample = "test_subsampled"
-    rag = "topic_cot_self_RAG"
+    rag = "AT_RAG"
     
     evaluation = Evaluation(dataset=dataset,
                             subsample=subsample,

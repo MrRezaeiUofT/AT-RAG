@@ -102,9 +102,9 @@ if __name__ == "__main__":
 
 ---
 
-## 3. QA with `models/topic_cot_self_RAG.py`
+## 3. QA with `models/AT_RAG.py`
 
-This section demonstrates how to use the `TopicCoTSelfRAG` class to process documents, query questions, and retrieve generated answers using a pre-trained model and vector database. The pipeline incorporates topic modeling through a CoT (Chain-of-Thought) approach and RAG (Retrieval-Augmented Generation) for answering questions.
+This section demonstrates how to use the `AT_RAG` class to process documents, query questions, and retrieve generated answers using a pre-trained model and vector database. The pipeline incorporates topic modeling through a CoT (Chain-of-Thought) approach and RAG (Retrieval-Augmented Generation) for answering questions.
 
 ### Example Usage
 
@@ -112,7 +112,7 @@ This section demonstrates how to use the `TopicCoTSelfRAG` class to process docu
 if __name__ == "__main__":
     dataset = "2wikimultihopqa"
     subsample = "test_subsampled"
-    model = "topic_cot_self_RAG"
+    model = "AT_RAG"
     top_n = 10  # Number of topics to retrieve
     max_iter = 5  # Maximum iterations for topic modeling
 
@@ -146,7 +146,7 @@ if __name__ == "__main__":
 ### Parameters
 - **dataset**: Dataset for document processing and question answering (e.g., `2wikimultihopqa`).
 - **subsample**: Subsample of the dataset (e.g., `test_subsampled`).
-- **model**: Model used for generating answers (e.g., `topic_cot_self_RAG`).
+- **model**: Model used for generating answers (e.g., `AT_RAG`).
 - **top_n**: Number of topics to retrieve during topic modeling.
 - **max_iter**: Maximum iterations for the answering pipline.
 
@@ -167,7 +167,7 @@ This section demonstrates how to use the `Evaluation` class to evaluate the resu
 if __name__ == "__main__":
     dataset = "2wikimultihopqa"
     subsample = "test_subsampled"
-    rag = "topic_cot_self_RAG"
+    rag = "AT_RAG"
 
     # Create an instance of Evaluation
     evaluation = Evaluation(dataset=dataset, subsample=subsample, rag=rag)
@@ -182,7 +182,7 @@ if __name__ == "__main__":
 ### Parameters
 - **dataset**: Name of the dataset used for evaluation (e.g., `2wikimultihopqa`).
 - **subsample**: Subsample of the dataset (e.g., `test_subsampled`).
-- **rag**: RAG model used (e.g., `topic_cot_self_RAG`).
+- **rag**: RAG model used (e.g., `AT_RAG`).
 - **model**: Model for LLM-based evaluation (e.g., `gpt-4o-mini`).
 
 ### Methods
