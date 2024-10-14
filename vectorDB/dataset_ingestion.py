@@ -1,24 +1,26 @@
 import os
 import json
 from decouple import config
+from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import Chroma
 from bertopic import BERTopic
 from transformers import AutoTokenizer, AutoModel
 from train_topic_model import BERTopicTrainer
-from gemini_embeddings import GeminiEmbeddings  # Assuming Gemini embeddings package exists
 
-# Load the Gemini API key
-gemini_api_key = config('GEMINI_API')
+# Load the OpenAI API key
+openai_api_key = config('OPENAI_API_KEY')
 
 
 # Ingestor Class (modified to use BERTopicTrainer)
 class Ingestor:
     def __init__(self, dataset_path: str = 'Nan',
                  persist_directory: str = 'Nan',
-                 gemini_api_key: str = 'Nan'):
+                 openai_api_key: str = 'Nan'):
         self.dataset_path = dataset_path
         self.persist_directory = persist_directory
-        self.gemini_api_key = gemini_api_key
+        self.openai_api_key = openai_api_key
+
+        
 
     def load_data(self):
         """Load the dataset and extract documents and metadata."""
@@ -29,6 +31,8 @@ class Ingestor:
         metadatas = []
 
         for i, sample in enumerate(data):
+            # if i > 3:  # Limiting for debugging, you can adjust as needed
+            #     break
             for context in sample['contexts']:
                 documents.append(context['paragraph_text'])
                 metadatas.append({
@@ -48,6 +52,7 @@ class Ingestor:
     def create_vectordb(self):
         """Create the Chroma vector store with embeddings and topic metadata."""
         # Load data and metadata
+        # Initialize BERTopicTrainer to manage topic model
         self.topic_model = BERTopicTrainer()
         self.topic_model.load_topic_model()
         documents, metadatas = self.load_data()
@@ -59,8 +64,8 @@ class Ingestor:
         for metadata, bertopic_topic in zip(metadatas, bertopic_topics):
             metadata['bertopic'] = f"Topic {bertopic_topic}"  # Add BERTopic result
 
-        # Initialize Gemini embeddings
-        embeddings = GeminiEmbeddings(api_key=self.gemini_api_key)
+        # Initialize embeddings
+        embeddings = OpenAIEmbeddings(openai_api_key=self.openai_api_key)
 
         # Create Chroma vector store and save it
         print("Creating Chroma vector store...")
@@ -81,7 +86,7 @@ class Ingestor:
         """Load an existing vector database if available; otherwise create a new one."""
         if os.path.exists(persist_directory):
             print(f"Loading existing vector database from '{persist_directory}'...")
-            embeddings = GeminiEmbeddings(api_key=self.gemini_api_key)
+            embeddings = OpenAIEmbeddings(openai_api_key=self.openai_api_key)
             vectordb = Chroma(persist_directory=persist_directory, embedding_function=embeddings)
         else:
             print(f"Vector database not found. Creating a new one...")
@@ -113,25 +118,25 @@ class Ingestor:
                 print(result)
 
         return search_results
-
+    
     def load_evaluation_data(self):
         """
-        This method loads evaluation data (question + ground-truth) and returns it as a dictionary.
+        This method loads evaluation data (question + ground-truth) and returns it as a dictionary
         """
-        dict_groundtruth = {
-            "question_id": [],
-            "question_text": [],
-            "ground_truth": []
-        }
-
+        
+        dict_groundtruth = {"question_id": [],
+                            "question_text": [],
+                            "ground_truth": []}
+        
+        
         with open(self.dataset_path, 'r') as file:
             data = [json.loads(line) for line in file]
-
+            
         for sample in data:
             dict_groundtruth["question_id"].append(sample["question_id"])
             dict_groundtruth["question_text"].append(sample["question_text"])
             dict_groundtruth["ground_truth"].append(sample["answers_objects"][0]["spans"][0])
-
+        
         return dict_groundtruth
 
 
@@ -141,12 +146,16 @@ if __name__ == "__main__":
     top_n = 10
     # Create an instance of Ingestor with pre-trained models
     ingestor = Ingestor(
-        dataset_path=f"../processed_data/{dataset}/{subsample}.jsonl",
-        persist_directory=f"../vectorDB/{dataset}",
-        gemini_api_key=gemini_api_key,
+        dataset_path="../processed_data/{}/{}.jsonl".format(dataset,
+                                                                           subsample),
+        persist_directory="../vectorDB/{}".format(dataset),
+        openai_api_key=openai_api_key,
     )
     vectordb = ingestor.create_vectordb()
 
     # Example: Ask a question and retrieve answers
     question = "Who is the father-in-law of Queen Hyojeong?"
     results = ingestor.query_question(question, top_n=top_n)
+
+
+

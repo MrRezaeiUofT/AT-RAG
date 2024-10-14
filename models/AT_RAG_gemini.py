@@ -36,6 +36,7 @@ class TopicCoTSelfRAG:
     ):
         # Load OpenAI API key from environment variables
         self.openai_api_key = config("OPENAI_API_KEY")
+        self.gemini_api_key = config("GEMINI_API")
         self.max_iter = max_iter
         self.max_doc_retrived = max_doc_retrived
         # Initialize the Ingestor
@@ -51,7 +52,7 @@ class TopicCoTSelfRAG:
         # Initialize LLM
         # self.llm =  ChatOpenAI(model="gpt-4o",api_key=self.openai_api_key)
         self.llm=ChatGoogleGenerativeAI(
-    api_key=config("GEMINI_API"),  # Fetch the API key from the environment variable
+    api_key=self.gemini_api_key,  # Fetch the API key from the environment variable
     model="gemini-1.5-pro",
     convert_system_message_to_human=True
 )
@@ -171,8 +172,8 @@ class TopicCoTSelfRAG:
         )
         return prompt | self.llm | parser
     def retrieve(self, state):
-        print("---RETRIEVE---")
-        start_time = time.time()
+        # print("---RETRIEVE---")
+        
         question = state["question"]
         new_topics, new_probabilities = self.trainer.get_topics_with_probabilities(question)
         assigned_topic = new_topics[0]
@@ -183,10 +184,8 @@ class TopicCoTSelfRAG:
             search_kwargs={"filter": metadata_filter, "k": self.max_doc_retrived},
         )
         documents = retriever.invoke(question)
-        end_time = time.time()
-        elapsed_time = end_time - start_time
-        print(f"Elapsed time: {elapsed_time:.6f} seconds")
-        # print(len(documents))
+        
+        # print(f"len documents {len(documents)}")
         # print(documents)
         return {"documents": self.format_docs(documents)}
 
@@ -227,7 +226,7 @@ class TopicCoTSelfRAG:
         # print("---ASSESS GRADED DOCUMENTS---")
         filtered_documents = state["documents"]
 
-        print(self.iter)
+        # print(self.iter)
         if self.iter >= self.max_iter:
             return "generate"
         else:
@@ -342,13 +341,16 @@ class TopicCoTSelfRAG:
 
     def run_pipeline(self, question):
         self.iter = 0
-
+        start_time = time.time()
         final_state = {}
         inputs = {"question": question}
         for output in self.app.stream(inputs, {"recursion_limit": 50}):
             if "generation" in output:
                 self.final_answer = output["generation"]
         # Return the final generated answer
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Elapsed time: {elapsed_time:.6f} seconds")
         return final_state
 
     @staticmethod
@@ -362,7 +364,7 @@ if __name__ == "__main__":
     subsample = "test_subsampled"
     model = "topic_cot_self_RAG"
     top_n = 10
-    max_iter = 5
+    max_iter = 1
     max_doc_retrived = 10
     checkpoint_path = "../results/checkpoint_{}_{}_{}.csv".format(dataset, subsample, model)
     
