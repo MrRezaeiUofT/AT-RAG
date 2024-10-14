@@ -49,12 +49,12 @@ class TopicCoTSelfRAG:
         self.trainer.load_topic_model()
 
         # Initialize LLM
-        self.llm =  ChatOpenAI(model="gpt-4o",api_key=self.openai_api_key)
-#         self.llm=ChatGoogleGenerativeAI(
-#     api_key=config("GEMINI_API"),  # Fetch the API key from the environment variable
-#     model="gemini-1.5-pro",
-#     convert_system_message_to_human=True
-# )
+
+        self.llm=ChatGoogleGenerativeAI(
+    api_key=config("GEMINI_API"),  # Fetch the API key from the environment variable
+    model="gemini-1.5-pro",
+    convert_system_message_to_human=True
+)
 
         # Initialize graders and chain
         self.retrieval_grader = self._create_retrieval_grader()
