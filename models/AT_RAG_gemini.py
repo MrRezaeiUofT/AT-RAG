@@ -39,6 +39,7 @@ class TopicCoTSelfRAG:
         self.gemini_api_key = config("GEMINI_API")
         self.max_iter = max_iter
         self.max_doc_retrived = max_doc_retrived
+
         # Initialize the Ingestor
         self.ingestor = Ingestor(dataset_path=dataset_path, openai_api_key=self.openai_api_key)
         self.vectordb = self.ingestor.load_vectordb(vectorDB_path)  # Adjust path as needed
@@ -148,10 +149,11 @@ class TopicCoTSelfRAG:
 
     def _create_question_rewriter(self):
         prompt = PromptTemplate(
-            template="""You are a question re-writer that improves a question for vectorstore retrieval. \n
-            Here is the initial question: \n\n {question}. 
-            Just genrete the Improved question: """,
-            input_variables=["question"],
+            template="""You are a question re-writer that paraphrase a question based on the provided contex to guide twoard the final answer and. \n
+            Here is the initial question: \n\n {question}.
+            Here is the context: \n \n {context}
+            Just genrete the new question: """,
+            input_variables=["question", "context"],
         )
         return prompt | self.llm | StrOutputParser()
 
@@ -166,6 +168,7 @@ class TopicCoTSelfRAG:
             template="""You are a question answering angent that answers a question given the context. \n
             Here is the initial question: \n\n {question}. 
             Here is the context: \n\n {context}. 
+            The final answer should directly be respond the question only with no extra information
             Please respond in valid JSON format using the following instructions: \n
             {format_instructions} """,
             input_variables=["question", "context"],partial_variables={"format_instructions": format_instructions},
@@ -175,25 +178,30 @@ class TopicCoTSelfRAG:
         # print("---RETRIEVE---")
         
         question = state["question"]
+
         new_topics, new_probabilities = self.trainer.get_topics_with_probabilities(question)
         assigned_topic = new_topics[0]
 
         metadata_filter = {"bertopic": f"Topic {assigned_topic}"}
         retriever = self.vectordb.as_retriever(
             search_type="similarity",
-            search_kwargs={"filter": metadata_filter, "k": self.max_doc_retrived},
+            search_kwargs={
+                "filter": metadata_filter,
+                            "k": self.max_doc_retrived},
         )
         documents = retriever.invoke(question)
         
         # print(f"len documents {len(documents)}")
         # print(documents)
+  
         return {"documents": self.format_docs(documents)}
 
     def generate(self, state):
-        # print("---GENERATE---")
+        print("---GENERATE---")
         question = state["question"]
         documents = state["documents"]
         thoughts = state["thoughts"]
+        print(thoughts)
         question = f"{question}-- {thoughts}"
         generation = self.rag_chain.invoke({"context": documents, "question": question})
         self.last_answer = generation['answer']
@@ -205,20 +213,20 @@ class TopicCoTSelfRAG:
         question = state["question"]
         documents = state["documents"]
 
-        filtered_docs = []
+        
 
         score = self.retrieval_grader.invoke({"question": question, "document": documents})
         if score["score"] == "yes":
-            filtered_docs.append(documents)
+            self.filtered_docs.append(documents)
 
         return {
-            "documents": filtered_docs,
+            "documents": self.filtered_docs,
         }
 
     def transform_query(self, state):
         # print("---TRANSFORM QUERY---")
         question = state["question"]
-        better_question = self.question_rewriter.invoke({"question": question})
+        better_question = self.question_rewriter.invoke({"question": question, "context":state["documents"]})
         self.iter += 1
         return {"documents": state["documents"], "question": better_question}
 
@@ -278,7 +286,7 @@ class TopicCoTSelfRAG:
 
         cot_prompt = PromptTemplate(
             template=prompt,
-            input_variables=["generation", "question", "context"],
+            input_variables=[ "question", "context"],
             partial_variables={"format_instructions": format_instructions},
         )
 
@@ -303,7 +311,7 @@ class TopicCoTSelfRAG:
         cot = cot_chain.invoke({"question": question, "context": documents})
         # print(cot)
         return {
-            "thoughts": cot["thoughts"],
+            "thoughts": cot["thoughts"] + state.get("thoughts", ""),
             "question": question,
         }
 
@@ -311,22 +319,13 @@ class TopicCoTSelfRAG:
         # Initialize the workflow
         self.workflow.add_node("retrieve", self.retrieve)
         self.workflow.add_node("generate_cot", self.generate_cot)  # grade documents
-        self.workflow.add_node("grade_documents", self.grade_documents)
+        # self.workflow.add_node("grade_documents", self.grade_documents)
         self.workflow.add_node("generate", self.generate)
         self.workflow.add_node("transform_query", self.transform_query)
 
         self.workflow.add_edge(START, "retrieve")
         self.workflow.add_edge("retrieve", "generate_cot")
-        self.workflow.add_edge("generate_cot", "grade_documents")
-        self.workflow.add_conditional_edges(
-            "grade_documents",
-            self.decide_to_generate,
-            {
-                "transform_query": "transform_query",
-                "generate": "generate",
-            },
-        )
-        self.workflow.add_edge("transform_query", "retrieve")
+        self.workflow.add_edge("generate_cot", "generate")
         self.workflow.add_conditional_edges(
             "generate",
             self.grade_generation,
@@ -343,6 +342,7 @@ class TopicCoTSelfRAG:
         self.iter = 0
         start_time = time.time()
         final_state = {}
+
         inputs = {"question": question}
         for output in self.app.stream(inputs, {"recursion_limit": 50}):
             if "generation" in output:
@@ -364,8 +364,8 @@ if __name__ == "__main__":
     subsample = "test_subsampled"
     model = "topic_cot_self_RAG"
     top_n = 10
-    max_iter = 1
-    max_doc_retrived = 10
+    max_iter = 5
+    max_doc_retrived = 5
     checkpoint_path = "../results/checkpoint_{}_{}_{}.csv".format(dataset, subsample, model)
     
     # Initialize the TopicCoTSelfRAG pipeline
