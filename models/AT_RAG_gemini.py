@@ -2,9 +2,9 @@ import sys
 from decouple import config
 from langchain.prompts import PromptTemplate
 from langchain.llms import OpenAI
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains import LLMChain
 from langchain.chat_models import ChatOpenAI 
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain import hub
 from langchain_core.prompts import PromptTemplate, FewShotPromptTemplate
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
@@ -202,7 +202,7 @@ class TopicCoTSelfRAG:
         documents = state["documents"]
         thoughts = state["thoughts"]
         print(thoughts)
-        question = f"{question}-- {thoughts}"
+        question = f"{thoughts}--{question}"
         generation = self.rag_chain.invoke({"context": documents, "question": question})
         self.last_answer = generation['answer']
         self.iter += 1
@@ -324,6 +324,7 @@ class TopicCoTSelfRAG:
         self.workflow.add_node("transform_query", self.transform_query)
 
         self.workflow.add_edge(START, "retrieve")
+        self.workflow.add_edge("transform_query", "retrieve")
         self.workflow.add_edge("retrieve", "generate_cot")
         self.workflow.add_edge("generate_cot", "generate")
         self.workflow.add_conditional_edges(
