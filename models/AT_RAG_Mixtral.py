@@ -12,6 +12,8 @@ import pandas as pd
 from pprint import pprint
 from langgraph.graph import END, StateGraph, START
 from typing_extensions import TypedDict
+import os
+import pandas as pd
 
 
 # Append the necessary paths for dataset and vector DB
@@ -140,13 +142,21 @@ class TopicCoTSelfRAG:
         return prompt | self.llm | parser
 
     def _create_question_rewriter(self):
+        response_schemas = [
+            ResponseSchema(name="new_question", description="the new question'", type="string")
+        ]
+        parser = StructuredOutputParser.from_response_schemas(response_schemas)
+        format_instructions = parser.get_format_instructions()
         prompt = PromptTemplate(
-            template="""You are a question re-writer that improves a question for vectorstore retrieval. \n
-            Here is the initial question: \n\n {question}. 
-            Just genrete the Improved question: """,
+            template="""You are a question re-writer that iparaphrase a question. \n
+            Here is the initial question: \n {question}. 
+            Just genrete the Improved question:
+            Please respond in valid JSON format using the following instructions: \n 
+            {format_instructions}""",
             input_variables=["question"],
+            partial_variables={"format_instructions": format_instructions},
         )
-        return prompt | self.llm | StrOutputParser()
+        return prompt | self.llm | parser
 
     def _create_rag_chain(self):
         prompt = hub.pull("rlm/rag-prompt")
@@ -197,6 +207,7 @@ class TopicCoTSelfRAG:
         print("---TRANSFORM QUERY---")
         question = state["question"]
         better_question = self.question_rewriter.invoke({"question": question})
+        better_question = better_question["new_question"]
         self.iter += 1
         return {"documents": state["documents"], "question": better_question}
 
@@ -288,22 +299,14 @@ class TopicCoTSelfRAG:
         # Initialize the workflow
         self.workflow.add_node("retrieve", self.retrieve)
         self.workflow.add_node("generate_cot", self.generate_cot)  # grade documents
-        self.workflow.add_node("grade_documents", self.grade_documents)
+        # self.workflow.add_node("grade_documents", self.grade_documents)
         self.workflow.add_node("generate", self.generate)
         self.workflow.add_node("transform_query", self.transform_query)
 
         self.workflow.add_edge(START, "retrieve")
-        self.workflow.add_edge("retrieve", "generate_cot")
-        self.workflow.add_edge("generate_cot", "grade_documents")
-        self.workflow.add_conditional_edges(
-            "grade_documents",
-            self.decide_to_generate,
-            {
-                "transform_query": "transform_query",
-                "generate": "generate",
-            },
-        )
         self.workflow.add_edge("transform_query", "retrieve")
+        self.workflow.add_edge("retrieve", "generate_cot")
+        self.workflow.add_edge("generate_cot", "generate")
         self.workflow.add_conditional_edges(
             "generate",
             self.grade_generation,
@@ -333,11 +336,8 @@ class TopicCoTSelfRAG:
         return "\n\n".join(doc.page_content for doc in docs)
 
 
-import os
-import pandas as pd
-
 if __name__ == "__main__":
-    dataset = "2wikimultihopqa"
+    dataset = "musique"
     subsample = "test_subsampled"
     model = "topic_cot_self_RAG"
     top_n = 10

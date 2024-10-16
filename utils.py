@@ -4,9 +4,11 @@ from decouple import config
 
 
 def get_llm():
-    # Initialize and return a HuggingFaceTextGenInference model with parameters from the config
+    # Initialize and return a HuggingFaceTextGenInference model with authorization in the URL
+    inference_server_url = f"{config('TGI_URL')}?Authorization=Bearer {config('HF_TOKEN')}"
+
     llm = HuggingFaceTextGenInference(
-        inference_server_url=config("TGI_URL"),
+        inference_server_url=inference_server_url,
         max_new_tokens=config("TGI_MAX_NEW_TOKENS", cast=int),
         top_k=config("TGI_TOP_K", cast=int),
         top_p=config("TGI_TOP_P", cast=float),
@@ -21,5 +23,5 @@ def get_llm():
 
 def get_embedding_model():
     return HuggingFaceHubEmbeddings(
-        model=config("TEI_URL"), huggingfacehub_api_token="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"
+        model=config("TEI_URL"), huggingfacehub_api_token=config("HF_TOKEN")
     )

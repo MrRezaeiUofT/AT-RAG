@@ -78,7 +78,7 @@ class BERTopicTrainer:
 
 
 if __name__ == "__main__":
-    dataset = "2wikimultihopqa"
+    dataset = "musique"
     subsample = "test_subsampled"
     dataset_path = "../processed_data/{}/{}.jsonl".format(dataset, subsample)
     trainer = BERTopicTrainer(dataset_path=dataset_path, nr_topics=20)  # Reduce to 10 topics

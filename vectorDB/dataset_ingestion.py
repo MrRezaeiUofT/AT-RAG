@@ -163,7 +163,7 @@ class Ingestor:
 
 
 if __name__ == "__main__":
-    dataset = "2wikimultihopqa"
+    dataset = "musique"
     subsample = "test_subsampled"
     top_n = 10
     # Create an instance of Ingestor with pre-trained models
