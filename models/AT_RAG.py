@@ -3,24 +3,25 @@ from decouple import config
 from langchain.prompts import PromptTemplate
 from langchain.llms import OpenAI
 from langchain.chains import LLMChain
+from langchain.chat_models import ChatOpenAI 
 from langchain import hub
 from langchain_core.prompts import PromptTemplate, FewShotPromptTemplate
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from langchain.output_parsers import ResponseSchema, StructuredOutputParser
 from typing import List
 import pandas as pd
+import os
+import pandas as pd
+import time
 from pprint import pprint
 from langgraph.graph import END, StateGraph, START
 from typing_extensions import TypedDict
-
-
 # Append the necessary paths for dataset and vector DB
 sys.path.append("../")
 sys.path.append("../vectorDB/")
 
 from dataset_ingestion import Ingestor
 from train_topic_model import BERTopicTrainer
-
 
 class TopicCoTSelfRAG:
     def __init__(
@@ -34,8 +35,10 @@ class TopicCoTSelfRAG:
     ):
         # Load OpenAI API key from environment variables
         self.openai_api_key = config("OPENAI_API_KEY")
+        self.gemini_api_key = config("GEMINI_API")
         self.max_iter = max_iter
         self.max_doc_retrived = max_doc_retrived
+
         # Initialize the Ingestor
         self.ingestor = Ingestor(dataset_path=dataset_path, openai_api_key=self.openai_api_key)
         self.vectordb = self.ingestor.load_vectordb(vectorDB_path)  # Adjust path as needed
@@ -47,7 +50,8 @@ class TopicCoTSelfRAG:
         self.trainer.load_topic_model()
 
         # Initialize LLM
-        self.llm = OpenAI(api_key=self.openai_api_key)
+        # self.llm =  ChatOpenAI(model="gpt-4o",api_key=self.openai_api_key)
+        self.llm=ChatOpenAI(model="gpt-4o",api_key=self.openai_api_key)
 
         # Initialize graders and chain
         self.retrieval_grader = self._create_retrieval_grader()
@@ -81,14 +85,17 @@ class TopicCoTSelfRAG:
         ]
         parser = StructuredOutputParser.from_response_schemas(response_schemas)
         format_instructions = parser.get_format_instructions()
+
         prompt = PromptTemplate(
-            template="""You are a grader assessing relevance of a retrieved document to a user question. \n 
+            template="""You are a grader assessing the relevance of a retrieved document to a user question. \n 
             Here is the retrieved document: \n\n {document} \n\n
             Here is the user question: {question} \n
-            use {format_instructions} for answer output""",
+            Please respond in valid JSON format as follows:\n
+            {format_instructions}""",
             input_variables=["question", "document"],
             partial_variables={"format_instructions": format_instructions},
         )
+
         return prompt | self.llm | parser
 
     def _create_hallucination_grader(self):
@@ -97,17 +104,20 @@ class TopicCoTSelfRAG:
         ]
         parser = StructuredOutputParser.from_response_schemas(response_schemas)
         format_instructions = parser.get_format_instructions()
+
         prompt = PromptTemplate(
             template="""You are a grader assessing whether an answer is grounded in a set of facts. \n 
             Here are the facts:
             \n ------- \n
             {documents} 
             \n ------- \n
-            Here is the answer: {generation}
-            use {format_instructions} for answer output """,
+            Here is the answer: {generation} \n
+            Please respond in valid JSON format using the following instructions: \n
+            {format_instructions}""",
             input_variables=["generation", "documents"],
             partial_variables={"format_instructions": format_instructions},
         )
+
         return prompt | self.llm | parser
 
     def _create_answer_grader(self):
@@ -116,45 +126,69 @@ class TopicCoTSelfRAG:
         ]
         parser = StructuredOutputParser.from_response_schemas(response_schemas)
         format_instructions = parser.get_format_instructions()
+
         prompt = PromptTemplate(
-            template="""You are a grader assessing whether an answer is useful to resolve a question. \n 
+            template="""You are a grader assessing whether an answer is useful to resolve a question. \n
             Here is the answer:
             \n ------- \n
             {generation} 
             \n ------- \n
-            Here is the question: {question}
-            use {format_instructions} for answer output.""",
+            Here is the question: {question} \n
+            Please respond in valid JSON format using the following instructions: \n
+            {format_instructions}""",
             input_variables=["generation", "question"],
             partial_variables={"format_instructions": format_instructions},
         )
+
         return prompt | self.llm | parser
 
     def _create_question_rewriter(self):
         prompt = PromptTemplate(
-            template="""You are a question re-writer that improves a question for vectorstore retrieval. \n
-            Here is the initial question: \n\n {question}. 
-            Just genrete the Improved question: """,
-            input_variables=["question"],
+            template="""You are a question re-writer that paraphrase a question based on the provided contex to guide twoard the final answer and. \n
+            Here is the initial question: \n\n {question}.
+            Here is the context: \n \n {context}
+            Just genrete the new question: """,
+            input_variables=["question", "context"],
         )
         return prompt | self.llm | StrOutputParser()
 
     def _create_rag_chain(self):
-        prompt = hub.pull("rlm/rag-prompt")
-        return prompt | self.llm | StrOutputParser()
 
+        response_schemas = [
+            ResponseSchema(name="answer", description="the final answer", type="string")
+        ]
+        parser = StructuredOutputParser.from_response_schemas(response_schemas)
+        format_instructions = parser.get_format_instructions()
+        prompt = PromptTemplate(
+            template="""You are a question answering angent that answers a question given the context. \n
+            Here is the initial question: \n\n {question}. 
+            Here is the context: \n\n {context}. 
+            The final answer should directly be respond the question only with no extra information
+            Please respond in valid JSON format using the following instructions: \n
+            {format_instructions} """,
+            input_variables=["question", "context"],partial_variables={"format_instructions": format_instructions},
+        )
+        return prompt | self.llm | parser
     def retrieve(self, state):
         # print("---RETRIEVE---")
+        
         question = state["question"]
+
         new_topics, new_probabilities = self.trainer.get_topics_with_probabilities(question)
         assigned_topic = new_topics[0]
 
         metadata_filter = {"bertopic": f"Topic {assigned_topic}"}
         retriever = self.vectordb.as_retriever(
             search_type="similarity",
-            search_kwargs={"filter": metadata_filter, "k": self.max_doc_retrived},
+            search_kwargs={
+                "filter": metadata_filter,
+                            "k": self.max_doc_retrived},
         )
         documents = retriever.invoke(question)
-        print(len(documents))
+        
+        # print(f"len documents {len(documents)}")
+        # print(documents)
+  
         return {"documents": self.format_docs(documents)}
 
     def generate(self, state):
@@ -162,39 +196,40 @@ class TopicCoTSelfRAG:
         question = state["question"]
         documents = state["documents"]
         thoughts = state["thoughts"]
-        question = f"{question}-- {thoughts}"
+        print(thoughts)
+        question = f"{thoughts}--{question}"
         generation = self.rag_chain.invoke({"context": documents, "question": question})
-        self.last_answer = generation
+        self.last_answer = generation['answer']
         self.iter += 1
-        return {"documents": documents, "generation": generation}
+        return {"documents": documents, "generation": generation['answer']}
 
     def grade_documents(self, state):
-        print("---CHECK DOCUMENT RELEVANCE TO QUESTION---")
+        # print("---CHECK DOCUMENT RELEVANCE TO QUESTION---")
         question = state["question"]
         documents = state["documents"]
 
-        filtered_docs = []
+        
 
         score = self.retrieval_grader.invoke({"question": question, "document": documents})
         if score["score"] == "yes":
-            filtered_docs.append(documents)
+            self.filtered_docs.append(documents)
 
         return {
-            "documents": filtered_docs,
+            "documents": self.filtered_docs,
         }
 
     def transform_query(self, state):
-        print("---TRANSFORM QUERY---")
+        # print("---TRANSFORM QUERY---")
         question = state["question"]
-        better_question = self.question_rewriter.invoke({"question": question})
+        better_question = self.question_rewriter.invoke({"question": question, "context":state["documents"]})
         self.iter += 1
         return {"documents": state["documents"], "question": better_question}
 
     def decide_to_generate(self, state):
-        print("---ASSESS GRADED DOCUMENTS---")
+        # print("---ASSESS GRADED DOCUMENTS---")
         filtered_documents = state["documents"]
 
-        print(self.iter)
+        # print(self.iter)
         if self.iter >= self.max_iter:
             return "generate"
         else:
@@ -204,7 +239,7 @@ class TopicCoTSelfRAG:
                 return "generate"
 
     def grade_generation(self, state):
-        print("---CHECK HALLUCINATIONS---")
+        # print("---CHECK HALLUCINATIONS---")
         score = self.hallucination_grader.invoke(
             {"documents": state["documents"], "generation": state["generation"]}
         )
@@ -224,26 +259,33 @@ class TopicCoTSelfRAG:
                 return "not supported"
 
     def get_cot_chain(self):
-
+        # Define the response schema to ensure the JSON format is valid
         response_schemas = [
             ResponseSchema(
                 name="thoughts",
-                description="the generated reasoning and chain of thought step by step for the question",
+                description="The generated reasoning and chain of thought for the question.",
                 type="string",
             ),
         ]
+
         # Initialize a structured output parser based on the response schema
         cot_parser = StructuredOutputParser.from_response_schemas(response_schemas)
         format_instructions = cot_parser.get_format_instructions()
-        prompt = """"You are a chain of thought generator for a {question} asked. 
-                    Do your best to generate a very short reasoning for the {question} about how it 
-                    you have access to these information {context}. should be answered step by step: use {format_instructions} """
+
+        # Define the prompt template with explicit instructions for valid JSON output
+        prompt = """You are tasked with generating a chain of thought for the question: {question}. 
+                    You have access to the following context: {context}. 
+                    Your job is to provide a detailed chain of reasoning and final thoughts.
+                    Please respond with valid JSON using the following instructions: 
+                    {format_instructions}"""
+
         cot_prompt = PromptTemplate(
             template=prompt,
-            input_variables=["generation", "question", "context"],
+            input_variables=[ "question", "context"],
             partial_variables={"format_instructions": format_instructions},
         )
-        # Return the chain of operations: prompt -> llm -> category_parser
+
+        # Return the chain of operations: prompt -> llm -> cot_parser
         return cot_prompt | self.llm | cot_parser
 
     def generate_cot(self, state):
@@ -256,14 +298,15 @@ class TopicCoTSelfRAG:
         Returns:
             state (dict): New key added to state, generation, that contains LLM generation
         """
-        print("---GENERATE COT---")
+        # print("---GENERATE COT---")
         question = state["question"]
         documents = state["documents"]
         cot_chain = self.get_cot_chain()
         # RAG generation
         cot = cot_chain.invoke({"question": question, "context": documents})
+        # print(cot)
         return {
-            "thoughts": cot["thoughts"],
+            "thoughts": cot["thoughts"] + state.get("thoughts", ""),
             "question": question,
         }
 
@@ -271,22 +314,14 @@ class TopicCoTSelfRAG:
         # Initialize the workflow
         self.workflow.add_node("retrieve", self.retrieve)
         self.workflow.add_node("generate_cot", self.generate_cot)  # grade documents
-        self.workflow.add_node("grade_documents", self.grade_documents)
+        # self.workflow.add_node("grade_documents", self.grade_documents)
         self.workflow.add_node("generate", self.generate)
         self.workflow.add_node("transform_query", self.transform_query)
 
         self.workflow.add_edge(START, "retrieve")
-        self.workflow.add_edge("retrieve", "generate_cot")
-        self.workflow.add_edge("generate_cot", "grade_documents")
-        self.workflow.add_conditional_edges(
-            "grade_documents",
-            self.decide_to_generate,
-            {
-                "transform_query": "transform_query",
-                "generate": "generate",
-            },
-        )
         self.workflow.add_edge("transform_query", "retrieve")
+        self.workflow.add_edge("retrieve", "generate_cot")
+        self.workflow.add_edge("generate_cot", "generate")
         self.workflow.add_conditional_edges(
             "generate",
             self.grade_generation,
@@ -301,14 +336,17 @@ class TopicCoTSelfRAG:
 
     def run_pipeline(self, question):
         self.iter = 0
-
+        start_time = time.time()
         final_state = {}
+
         inputs = {"question": question}
         for output in self.app.stream(inputs, {"recursion_limit": 50}):
-            print(output)
             if "generation" in output:
                 self.final_answer = output["generation"]
         # Return the final generated answer
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Elapsed time: {elapsed_time:.6f} seconds")
         return final_state
 
     @staticmethod
@@ -316,14 +354,17 @@ class TopicCoTSelfRAG:
         return "\n\n".join(doc.page_content for doc in docs)
 
 
+
 if __name__ == "__main__":
     dataset = "2wikimultihopqa"
     subsample = "test_subsampled"
     model = "topic_cot_self_RAG"
     top_n = 10
-    max_iter = 3
+    max_iter = 5
     max_doc_retrived = 5
-    # L = 3
+    checkpoint_path = "../results/checkpoint_{}_{}_{}.csv".format(dataset, subsample, model)
+    
+    # Initialize the TopicCoTSelfRAG pipeline
     pipeline = TopicCoTSelfRAG(
         vectorDB_path="../vectorDB/{}".format(dataset),
         dataset_path="../processed_data/{}/{}.jsonl".format(dataset, subsample),
@@ -332,30 +373,58 @@ if __name__ == "__main__":
         max_doc_retrived=max_doc_retrived,
     )
 
+    # Load evaluation data
     dict_results = pipeline.ingestor.load_evaluation_data()
-    # dict_results = {key: value[:L] for key, value in dict_results.items()}
-    dict_results["generated_answer"] = []
-    # Step 2: Create an instance of SmileRAGPipeline and query
 
-    for i in range(5, len(dict_results["question_id"])):
-
-        # if i>L:
-        #     break
+    # Check if there's an existing checkpoint file and load it
+    if os.path.exists(checkpoint_path):
+        df_checkpoint = pd.read_csv(checkpoint_path)
+        start_index = len(df_checkpoint)  # Continue from the next question
+        dict_results["generated_answer"] = df_checkpoint["generated_answer"].tolist()
+    else:
+        start_index = 0
+        dict_results["generated_answer"] = []
+    
+    # Iterate through the evaluation dataset starting from where it left off
+    for i in range(start_index, len(dict_results["question_id"])):
         question = dict_results["question_text"][i]
-        _ = pipeline.run_pipeline(question=question)
-        result = pipeline.last_answer
-        print(result)
-        result = result.lstrip()
-        dict_results["generated_answer"].append(result)
-        print(f"qustion#{i}")
-        print(
-            dict_results["question_text"][i],
-            "  ->  ",
-            dict_results["ground_truth"][i],
-            "  ->  ",
-            result,
-        )
+
+        try:
+            # Run the pipeline for the current question
+            _ = pipeline.run_pipeline(question=question)
+
+            # Attempt to retrieve the last generated answer
+            result = pipeline.last_answer if hasattr(pipeline, "last_answer") else "***"
+
+            # Strip leading spaces and add the result to the dictionary
+            result = result.lstrip() if result else ""
+            dict_results["generated_answer"].append(result)
+
+            print(f"question#{i}")
+            print(
+                dict_results["question_text"][i],
+                "  ->  ",
+                dict_results["ground_truth"][i],
+                "  ->  ",
+                result,
+            )
+        except Exception as e:
+            # If there's an error during the pipeline execution, log it and append an empty string
+            result = pipeline.last_answer if hasattr(pipeline, "last_answer") else "***"
+            print(f"Error processing question#{i}: {e}")
+            dict_results["generated_answer"].append(result)
+
+        # Save progress after each iteration
+        df_checkpoint = pd.DataFrame({
+            "question_id": dict_results["question_id"][: i + 1],
+            "question_text": dict_results["question_text"][: i + 1],
+            "ground_truth": dict_results["ground_truth"][: i + 1],
+            "generated_answer": dict_results["generated_answer"]
+        })
+        df_checkpoint.to_csv(checkpoint_path, index=False)
+
+    # Save the final results to a separate file
     df_results = pd.DataFrame(dict_results)
     df_results.to_csv(
-        "../results/results_{}_{}_{}.csv".format(dataset, subsample, model), index=False
+        "../results/results_gpt4o_azure_{}_{}_{}.csv".format(dataset, subsample, model), index=False
     )
