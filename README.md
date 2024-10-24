@@ -195,10 +195,10 @@ if __name__ == "__main__":
 ## Citation
 When utilizing this repository to generate published results or integrate it into other software, kindly acknowledge our paper by citing it.
 ```bibtex
-@article{xx,
-  title={xx},
-  author={xx},
-  journal={xx},
-  year={xx}
+@article{rezaei2024rag,
+  title={AT-RAG: An Adaptive RAG Model Enhancing Query Efficiency with Topic Filtering and Iterative Reasoning},
+  author={Rezaei, Mohammad Reza and Hafezi, Maziar and Satpathy, Amit and Hodge, Lovell and Pourjafari, Ebrahim},
+  journal={arXiv preprint arXiv:2410.12886},
+  year={2024}
 }
 ```
