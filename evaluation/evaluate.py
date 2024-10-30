@@ -96,7 +96,6 @@ class Evaluation:
         self.df["Correctness"] = 0
         self.df["Completeness"] = 0
         self.df["Relevance"] = 0
-        self.df["Clarity"] = 0
         self.df["Overall"] = 0
         
         for index, row in self.df.iterrows():
@@ -113,10 +112,10 @@ class Evaluation:
             1. Correctness: How well does the generated answer match the ground truth? (0-10)
             2. Completeness: Does the answer provide all relevant information related to the question? (0-10)
             3. Relevance: Is the answer relevant to the question being asked? (0-10)
-            4. Clarity: Is the answer clear and easy to understand? (0-10)
+
 
             Please provide a score from 0 to 10 for each criterion, along with an overall score, which is the average of the four criteria.
-            return your answer in JSON with these keys: Correctness, Completeness, Relevance, Clarity, Overall.
+            return your answer in JSON with these keys: Correctness, Completeness, Relevance, Overall.
             """
             
             completion = client.chat.completions.create(
@@ -140,7 +139,7 @@ class Evaluation:
                     self.df.at[index, "Correctness"] = evaluation_results["Correctness"]
                     self.df.at[index, "Completeness"] = evaluation_results["Completeness"]
                     self.df.at[index, "Relevance"] = evaluation_results["Relevance"]
-                    self.df.at[index, "Clarity"] = evaluation_results["Clarity"]
+
                     self.df.at[index, "Overall"] = evaluation_results["Overall"]
                     print(evaluation_results)
                 else:
@@ -164,11 +163,6 @@ class Evaluation:
                 "mean": self.df["Relevance"].mean(),
                 "var": self.df["Relevance"].var(),
                 "std": self.df["Relevance"].std()
-            },
-            "Clarity": {
-                "mean": self.df["Clarity"].mean(),
-                "var": self.df["Clarity"].var(),
-                "std": self.df["Clarity"].std()
             },
             "Overall": {
                 "mean": self.df["Overall"].mean(),
