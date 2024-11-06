@@ -1,5 +1,29 @@
-# Advanced QA Graph
 
+# AT-RAG: An Adaptive RAG Model Enhancing Query Efficiency with Topic Filtering and Iterative Reasoning
+
+## Overview
+**AT-RAG** (Adaptive Retrieval-Augmented Generation) is a novel RAG model developed to address the challenges of complex multi-hop queries, which are often problematic for large language models (LLMs) like GPT-4. By incorporating **topic filtering** and **iterative reasoning**, AT-RAG significantly improves both retrieval efficiency and reasoning accuracy in question answering (QA).
+
+AT-RAG leverages **BERTopic** for dynamic topic modeling, which assigns relevant topics to each incoming query, thereby boosting retrieval accuracy and computational efficiency. This model is adept at handling a variety of QA tasks, including both general inquiries and complex, domain-specific scenarios, such as medical QA, by managing intricate multi-step queries effectively.
+
+The figure below provides an overview of the AT-RAG model architecture, showcasing the integration of topic filtering and iterative reasoning for enhanced query efficiency and accuracy:
+
+![AT-RAG Model Architecture](Flowchart.png)
+
+## AT-RAG Performance
+The average overall score across multiple datasets for AT-RAG demonstrates a significant performance improvement over state-of-the-art models like Adaptive RAG. The graph below shows the comparison in performance scores, along with standard deviations for each model:
+
+![AT-RAG Model Performance](output.png)
+
+### Paper
+For more details, please refer to our paper:  
+[AT-RAG: An Adaptive RAG Model Enhancing Query Efficiency with Topic Filtering and Iterative Reasoning](https://arxiv.org/abs/2410.12886)
+
+### Key Features
+- Topic Filtering: Uses BERTopic to dynamically assign relevant topics to each query, improving retrieval accuracy.
+- Iterative Reasoning: Employs multistep reasoning to answer complex, multi-hop queries.
+- Efficiency & Precision: Reduces retrieval time while maintaining high precision, making it suitable for both general and specialized tasks.
+- Versatile Use Cases: Demonstrated effectiveness in both standard QA benchmarks and medical QA case studies.
 ## Datasets
 You can download multi-hop datasets (MuSiQue, HotpotQA, and 2WikiMultiHopQA) from [StonyBrookNLP/ircot](https://github.com/StonyBrookNLP/ircot).
 
