@@ -213,7 +213,7 @@ if __name__ == "__main__":
 - `rouge()`: Evaluates the dataset using ROUGE metrics.
 - `LLMaaJ(model)`: Uses an LLM to evaluate the quality of generated answers.
 ## Final Results
-- Final resultrs are saved in results directory
+- Final results are saved in the results directory
 ---
 
 ## Citation
