@@ -4,7 +4,7 @@
 ## Overview
 **AT-RAG** (Adaptive Retrieval-Augmented Generation) is a novel RAG model developed to address the challenges of complex multi-hop queries, which are often problematic for large language models (LLMs) like GPT-4. By incorporating **topic filtering** and **iterative reasoning**, AT-RAG significantly improves both retrieval efficiency and reasoning accuracy in question answering (QA).
 
-AT-RAG leverages **BERTopic** for dynamic topic modeling, which assigns relevant topics to each incoming query, thereby boosting retrieval accuracy and computational efficiency. This model is adept at handling a variety of QA tasks, including both general inquiries and complex, domain-specific scenarios, such as medical QA, by managing intricate multi-step queries effectively.
+AT-RAG leverages **BERTopic** for dynamic topic modeling, which assigns relevant topics to each incoming query, thereby boosting retrieval accuracy and computational efficiency. This model is adept at handling different QA tasks, including both general inquiries and complex, domain-specific scenarios, such as medical QA, by managing intricate multi-step queries effectively.
 
 The figure below provides an overview of the AT-RAG model architecture, showcasing the integration of topic filtering and iterative reasoning for enhanced query efficiency and accuracy:
 
